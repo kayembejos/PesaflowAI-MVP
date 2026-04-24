@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile storing onboarding state and budget configuration.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "hasCompletedOnboarding": { "type": "boolean" },
+        "monthlyIncome": { "type": "number" },
+        "budgetMode": { "type": "string", "enum": ["50/30/20", "CUSTOM"] },
+        "budgetLines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string", "enum": ["NEED", "WANT", "SAVING"] },
+              "amount": { "type": "number" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "hasCompletedOnboarding", "createdAt", "updatedAt"]
+    },
+    "Expense": {
+      "title": "Expense Record",
+      "description": "A single expense transaction.",
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number" },
+        "categoryName": { "type": "string" },
+        "type": { "type": "string", "enum": ["NEED", "WANT", "SAVING"] },
+        "paymentMethod": { "type": "string", "enum": ["CASH", "MOBILE_MONEY", "BANK"] },
+        "notes": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["amount", "categoryName", "type", "paymentMethod", "date", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile determining routing and basic app config."
+    },
+    "/users/{userId}/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Transactions belonging to a specific user."
+    }
+  }
+}
