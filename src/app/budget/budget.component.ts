@@ -68,7 +68,7 @@ interface BudgetHistory {
                       {{ budget.type === '50/30/20' ? 'Modèle 50/30/20' : 'Personnalisé' }}
                     </span>
                   </td>
-                  <td class="p-4 text-slate-600 font-medium">{{ budget.income | number }} FCFA</td>
+                  <td class="p-4 text-slate-600 font-medium">{{ budget.income | number }} {{ dashboardService.getCurrencySymbol() }}</td>
                   <td class="p-4">
                     @if (budget.isActive) {
                       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-bold">
@@ -120,7 +120,7 @@ interface BudgetHistory {
                 </div>
                 <div class="flex justify-between items-center text-sm">
                   <span class="text-slate-500">Revenu défini</span>
-                  <span class="font-bold text-slate-900">{{ budget.income | number }} FCFA</span>
+                  <span class="font-bold text-slate-900">{{ budget.income | number }} {{ dashboardService.getCurrencySymbol() }}</span>
                 </div>
               </div>
               

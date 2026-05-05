@@ -90,11 +90,11 @@ import {FormsModule} from '@angular/forms';
                        <span class="text-[11px] font-medium">{{ getPaymentLabel(expense.paymentMethod) }}</span>
                     </div>
                   </td>
-                  <td class="p-4 font-bold text-slate-900 text-sm">-{{ expense.amount | number }} FCFA</td>
+                  <td class="p-4 font-bold text-slate-900 text-sm">-{{ expense.amount | number }} {{ dashboardService.getCurrencySymbol() }}</td>
                   <td class="p-4 text-right">
                     <div class="flex flex-col items-end">
                        <span class="text-sm font-bold" [ngClass]="getRemainingColor(expense.categoryName)">
-                         {{ getRemainingBudget(expense.categoryName) | number }} FCFA
+                         {{ getRemainingBudget(expense.categoryName) | number }} {{ dashboardService.getCurrencySymbol() }}
                        </span>
                        <div class="w-16 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
                           <div class="h-full bg-teal-500 rounded-full" 
@@ -103,22 +103,39 @@ import {FormsModule} from '@angular/forms';
                        </div>
                     </div>
                   </td>
-                  <td class="p-4 pr-6 text-right">
+                   <td class="p-4 pr-6 text-right">
                     <div class="flex items-center justify-end gap-2">
-                       <button 
-                         (click)="openEditDialog(expense)"
-                         class="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all"
-                         title="Modifier"
-                       >
-                         <mat-icon class="text-[18px] w-4.5 h-4.5">edit</mat-icon>
-                       </button>
-                       <button 
-                         (click)="onDeleteExpense(expense)"
-                         class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                         title="Supprimer"
-                       >
-                         <mat-icon class="text-[18px] w-4.5 h-4.5">delete</mat-icon>
-                       </button>
+                       @if (expenseToDelete()?.id === expense.id) {
+                         <div class="flex items-center gap-1 bg-red-50 p-1 rounded-lg animate-in fade-in zoom-in duration-200">
+                           <button 
+                             (click)="confirmDelete()"
+                             class="px-2 py-1 bg-red-600 text-white text-[10px] font-bold rounded hover:bg-red-700 transition-colors uppercase"
+                           >
+                             Confirmer
+                           </button>
+                           <button 
+                             (click)="expenseToDelete.set(null)"
+                             class="p-1 px-2 text-slate-500 hover:text-slate-700 text-[10px] font-bold uppercase transition-colors"
+                           >
+                             Annuler
+                           </button>
+                         </div>
+                       } @else {
+                         <button 
+                           (click)="openEditDialog(expense)"
+                           class="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all"
+                           title="Modifier"
+                         >
+                           <mat-icon class="text-[18px] w-4.5 h-4.5">edit</mat-icon>
+                         </button>
+                         <button 
+                           (click)="onDeleteExpense(expense)"
+                           class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                           title="Supprimer"
+                         >
+                           <mat-icon class="text-[18px] w-4.5 h-4.5">delete</mat-icon>
+                         </button>
+                       }
                     </div>
                   </td>
                 </tr>
@@ -154,6 +171,7 @@ export class ExpensesComponent implements OnInit {
   selectedCategory = signal('');
   selectedMonth = signal('');
   expenseToEdit = signal<Expense | null>(null);
+  expenseToDelete = signal<Expense | null>(null);
 
   currentMonthYear = new Date().toISOString().slice(0, 7);
   currentMonthYearLabel = new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
@@ -232,16 +250,20 @@ export class ExpensesComponent implements OnInit {
     this.expenseToEdit.set(expense);
   }
 
-  async onDeleteExpense(expense: Expense) {
-    if (!expense.id) return;
+  onDeleteExpense(expense: Expense) {
+    this.expenseToDelete.set(expense);
+  }
+
+  async confirmDelete() {
+    const expense = this.expenseToDelete();
+    if (!expense?.id) return;
     
-    const confirmDelete = confirm(`Voulez-vous vraiment supprimer cette dépense de ${expense.amount} FCFA ?`);
-    if (confirmDelete) {
-      try {
-        await this.dashboardService.deleteExpense(expense.id);
-      } catch (e) {
-        alert("Erreur lors de la suppression de la dépense.");
-      }
+    try {
+      await this.dashboardService.deleteExpense(expense.id);
+      this.expenseToDelete.set(null);
+    } catch (e) {
+      console.error("Erreur lors de la suppression:", e);
+      this.expenseToDelete.set(null);
     }
   }
 }

@@ -1,9 +1,10 @@
-import {ChangeDetectionStrategy, Component, inject, signal} from '@angular/core';
-import {RouterLink, RouterLinkActive, RouterOutlet} from '@angular/router';
+import {ChangeDetectionStrategy, Component, inject, signal, computed} from '@angular/core';
+import {RouterLink, RouterLinkActive, RouterOutlet, Router} from '@angular/router';
 import {MatIconModule} from '@angular/material/icon';
 import {AuthService} from '../auth/auth.service';
 import {AddExpenseDialogComponent} from '../dashboard/add-expense-dialog.component';
 import {CommonModule} from '@angular/common';
+import {DashboardService} from '../dashboard/dashboard.service';
 
 @Component({
   selector: 'app-layout',
@@ -75,6 +76,19 @@ import {CommonModule} from '@angular/common';
           <div class="flex-1 md:flex-none"></div>
 
           <div class="flex items-center gap-4">
+             <!-- Currency Switcher -->
+             <div class="hidden sm:flex items-center bg-slate-100 rounded-full p-1 h-10">
+               @for (cur of ['USD', 'CDF', 'RWF', 'XOF']; track cur) {
+                 @let currency = $any(cur);
+                 <button 
+                   (click)="dashboardService.updateCurrency(currency)"
+                   class="px-3 h-full rounded-full text-[10px] font-bold transition-all uppercase"
+                   [ngClass]="dashboardService.userConfig()?.currency === currency ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'">
+                   {{ currency }}
+                 </button>
+               }
+             </div>
+
              <button class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors relative">
                <mat-icon class="text-[20px] w-5 h-5 leading-none">notifications_none</mat-icon>
                <span class="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border-2 border-slate-100"></span>
@@ -131,7 +145,10 @@ import {CommonModule} from '@angular/common';
 
       <!-- Global Add Expense Dialog -->
       @if (isAddDialogOpen()) {
-        <app-add-expense-dialog (onClose)="isAddDialogOpen.set(false)"></app-add-expense-dialog>
+        <app-add-expense-dialog 
+          [preselectedType]="isSavingsRoute() ? 'SAVING' : null"
+          (onClose)="isAddDialogOpen.set(false)"
+        ></app-add-expense-dialog>
       }
 
     </div>
@@ -144,5 +161,10 @@ import {CommonModule} from '@angular/common';
 })
 export class AppLayoutComponent {
   authService = inject(AuthService);
+  dashboardService = inject(DashboardService);
+  router = inject(Router);
+  
   isAddDialogOpen = signal(false);
+
+  isSavingsRoute = computed(() => this.router.url.includes('/savings'));
 }

@@ -64,15 +64,15 @@ import {BudgetChartComponent, ChartDataPoint} from './budget-chart.component';
             </div>
             <div class="relative z-10">
               <p class="text-slate-400 text-sm font-medium mb-1">Solde restant</p>
-              <h2 class="font-display text-4xl font-bold tracking-tight">{{ balance() | number }} <span class="text-xl text-slate-400 font-normal">FCFA</span></h2>
+              <h2 class="font-display text-4xl font-bold tracking-tight">{{ balance() | number }} <span class="text-xl text-slate-400 font-normal">{{ dashboardService.getCurrencySymbol() }}</span></h2>
               <div class="mt-4 pt-4 border-t border-slate-800 flex justify-between items-end gap-2">
-                 <div class="min-w-0">
+                 <div class="min-w-0 text-slate-100">
                    <p class="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-0.5">Revenu</p>
-                   <p class="font-semibold text-sm truncate">{{ monthlyIncome() | number }} FCFA</p>
+                   <p class="font-semibold text-sm truncate">{{ monthlyIncome() | number }} {{ dashboardService.getCurrencySymbol() }}</p>
                  </div>
                  <div class="text-right min-w-0">
                    <p class="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-0.5">Épargne possible</p>
-                   <p class="font-semibold text-teal-400 text-sm truncate">{{ possibleSavings() | number }} FCFA</p>
+                   <p class="font-semibold text-teal-400 text-sm truncate">{{ possibleSavings() | number }} {{ dashboardService.getCurrencySymbol() }}</p>
                  </div>
               </div>
             </div>
@@ -85,7 +85,7 @@ import {BudgetChartComponent, ChartDataPoint} from './budget-chart.component';
                 <p class="text-slate-500 text-sm font-medium mb-1">Dépenses totales</p>
                 <div class="flex items-baseline gap-2">
                   <h3 class="font-display text-3xl font-bold text-slate-900">{{ totalExpenses() | number }}</h3>
-                  <span class="text-slate-400 font-medium tracking-tight">FCFA</span>
+                  <span class="text-slate-400 font-medium tracking-tight">{{ dashboardService.getCurrencySymbol() }}</span>
                 </div>
               </div>
               <div class="text-right">

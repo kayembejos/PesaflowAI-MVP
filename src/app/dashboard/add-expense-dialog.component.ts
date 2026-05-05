@@ -1,4 +1,4 @@
-import { Component, inject, signal, output, input, OnInit } from '@angular/core';
+import { Component, inject, signal, output, input, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,8 +14,12 @@ import { DashboardService, BudgetLine, Expense } from './dashboard.service';
         <!-- Header -->
         <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div>
-            <h2 class="font-display text-xl font-bold text-slate-900">{{ editExpense() ? 'Modifier dépense' : 'Nouvelle dépense' }}</h2>
-            <p class="text-xs text-slate-500">{{ editExpense() ? 'Mettez à jour les détails' : 'Ajoutez une transaction rapidement' }}</p>
+            <h2 class="font-display text-xl font-bold text-slate-900">
+              {{ editExpense() ? 'Modifier' : (preselectedType() === 'SAVING' ? 'Nouveau dépôt' : 'Nouvelle dépense') }}
+            </h2>
+            <p class="text-xs text-slate-500">
+              {{ editExpense() ? 'Mettez à jour les détails' : (preselectedType() === 'SAVING' ? 'Ajoutez à votre épargne' : 'Ajoutez une transaction rapidement') }}
+            </p>
           </div>
           <button (click)="close()" class="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600">
             <mat-icon>close</mat-icon>
@@ -26,7 +30,7 @@ import { DashboardService, BudgetLine, Expense } from './dashboard.service';
         <form [formGroup]="expenseForm" (ngSubmit)="onSubmit()" class="p-6 space-y-5">
           <!-- Amount -->
           <div class="space-y-1.5">
-            <label class="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Montant (FCFA)</label>
+            <label class="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Montant ({{ dashboardService.getCurrencySymbol() }})</label>
             <div class="relative">
               <input 
                 type="number" 
@@ -154,13 +158,23 @@ import { DashboardService, BudgetLine, Expense } from './dashboard.service';
 })
 export class AddExpenseDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private dashboardService = inject(DashboardService);
+  public dashboardService = inject(DashboardService);
 
   editExpense = input<Expense | null>(null);
+  preselectedType = input<'NEED' | 'WANT' | 'SAVING' | null>(null);
+  preselectedCategory = input<string | null>(null);
   onClose = output<void>();
   isSaving = signal<boolean>(false);
   isNotesOpen = signal<boolean>(false);
-  budgetLines = signal<BudgetLine[]>(this.dashboardService.userConfig()?.budgetLines || []);
+  
+  budgetLines = computed(() => {
+    const lines = this.dashboardService.userConfig()?.budgetLines || [];
+    const type = this.preselectedType();
+    if (type) {
+      return lines.filter(l => l.type === type);
+    }
+    return lines;
+  });
 
   expenseForm = this.fb.group({
     amount: [null as number | null, [Validators.required, Validators.min(1)]],
@@ -172,8 +186,11 @@ export class AddExpenseDialogComponent implements OnInit {
 
   ngOnInit() {
     const expense = this.editExpense();
+    const type = this.preselectedType();
+    const category = this.preselectedCategory();
+
     if (expense) {
-      const catIndex = this.budgetLines().findIndex(l => l.name === expense.categoryName);
+      const catIndex = this.budgetLines().findIndex((l: BudgetLine) => l.name === expense.categoryName);
       this.expenseForm.patchValue({
         amount: expense.amount,
         categoryIndex: catIndex !== -1 ? String(catIndex) : '',
@@ -182,6 +199,11 @@ export class AddExpenseDialogComponent implements OnInit {
         notes: expense.notes || ''
       });
       if (expense.notes) this.isNotesOpen.set(true);
+    } else if (category) {
+      const catIndex = this.budgetLines().findIndex((l: BudgetLine) => l.name === category);
+      if (catIndex !== -1) {
+        this.expenseForm.patchValue({ categoryIndex: String(catIndex) });
+      }
     }
   }
 
@@ -196,12 +218,20 @@ export class AddExpenseDialogComponent implements OnInit {
     const formValue = this.expenseForm.value;
     const selectedLine = this.budgetLines()[Number(formValue.categoryIndex)];
     
+    const selectedDate = new Date(formValue.date!);
+    const now = new Date();
+    
+    // Si la date choisie est aujourd'hui, on injecte l'heure actuelle pour la précision
+    if (selectedDate.toDateString() === now.toDateString()) {
+      selectedDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+    }
+
     const expenseData: Omit<Expense, 'id'> = {
       amount: formValue.amount!,
       categoryName: selectedLine.name,
       type: selectedLine.type,
       paymentMethod: formValue.paymentMethod as any,
-      date: new Date(formValue.date!),
+      date: selectedDate,
       notes: formValue.notes || ''
     };
 

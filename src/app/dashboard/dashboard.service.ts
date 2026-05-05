@@ -1,7 +1,7 @@
-import {Injectable, inject, signal} from '@angular/core';
+import {Injectable, inject, signal, effect} from '@angular/core';
 import {AuthService} from '../auth/auth.service';
 import {db} from '../firebase';
-import {collection, doc, getDoc, getDocs, query, where, orderBy, addDoc, serverTimestamp, Timestamp, deleteDoc, updateDoc} from 'firebase/firestore';
+import {collection, doc, getDoc, getDocs, query, where, orderBy, addDoc, serverTimestamp, Timestamp, deleteDoc, updateDoc, onSnapshot} from 'firebase/firestore';
 
 export interface BudgetLine {
   name: string;
@@ -12,6 +12,7 @@ export interface BudgetLine {
 export interface UserConfig {
   monthlyIncome: number;
   budgetMode: string;
+  currency: 'USD' | 'CDF' | 'RWF' | 'XOF';
   budgetLines: BudgetLine[];
 }
 
@@ -33,41 +34,64 @@ export class DashboardService {
   expenses = signal<Expense[]>([]);
   isLoading = signal<boolean>(true);
 
-  async loadDashboardData() {
-    this.isLoading.set(true);
-    const user = this.authService.currentUser();
-    if (!user) {
-      this.isLoading.set(false);
-      return;
-    }
+  private unsubUser: any;
+  private unsubExpenses: any;
 
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (userSnap.exists()) {
-        const data = userSnap.data();
+  constructor() {
+    // Automatically load data when user identity changes
+    effect(() => {
+      const user = this.authService.currentUser();
+      if (user) {
+        this.setupRealtimeListeners(user.uid);
+      } else {
+        this.cleanup();
+      }
+    });
+  }
+
+  private cleanup() {
+    if (this.unsubUser) this.unsubUser();
+    if (this.unsubExpenses) this.unsubExpenses();
+    this.userConfig.set(null);
+    this.expenses.set([]);
+  }
+
+  private setupRealtimeListeners(userId: string) {
+    this.isLoading.set(true);
+    
+    // User Config Listener
+    const userRef = doc(db, 'users', userId);
+    this.unsubUser = onSnapshot(userRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
         this.userConfig.set({
           monthlyIncome: data['monthlyIncome'] || 0,
           budgetMode: data['budgetMode'] || '',
+          currency: data['currency'] || 'XOF',
           budgetLines: data['budgetLines'] || []
         });
       }
+      this.isLoading.set(false);
+    }, (error) => {
+      console.error("User sub error:", error);
+      this.isLoading.set(false);
+    });
 
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+    // Expenses Listener (Current Month)
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
 
-      const expensesRef = collection(db, 'users', user.uid, 'expenses');
-      const q = query(
-        expensesRef,
-        where('date', '>=', Timestamp.fromDate(startOfMonth)),
-        orderBy('date', 'desc')
-      );
-      
-      const expensesSnap = await getDocs(q);
+    const expensesRef = collection(db, 'users', userId, 'expenses');
+    const q = query(
+      expensesRef,
+      where('date', '>=', Timestamp.fromDate(startOfMonth)),
+      orderBy('date', 'desc')
+    );
+
+    this.unsubExpenses = onSnapshot(q, (snap) => {
       const loadedExpenses: Expense[] = [];
-      expensesSnap.forEach(doc => {
+      snap.forEach(doc => {
         const data = doc.data();
         loadedExpenses.push({
           id: doc.id,
@@ -79,13 +103,41 @@ export class DashboardService {
           notes: data['notes']
         });
       });
-      
       this.expenses.set(loadedExpenses);
+    }, (error) => {
+      console.error("Expenses sub error:", error);
+    });
+  }
+
+  async updateCurrency(currency: 'USD' | 'CDF' | 'RWF' | 'XOF') {
+    const user = this.authService.currentUser();
+    if (!user) return;
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        currency,
+        updatedAt: serverTimestamp()
+      });
     } catch (e) {
-      console.error("Error loading dashboard data:", e);
-    } finally {
-      this.isLoading.set(false);
+      console.error("Error updating currency:", e);
+      throw e;
     }
+  }
+
+  getCurrencySymbol(): string {
+    const currency = this.userConfig()?.currency || 'XOF';
+    switch (currency) {
+      case 'USD': return '$';
+      case 'CDF': return 'FC';
+      case 'RWF': return 'FRw';
+      case 'XOF': return 'FCFA';
+      default: return 'FCFA';
+    }
+  }
+
+  async loadDashboardData() {
+    // This is now redundant thanks to realtime listeners in constructor
   }
 
   async addExpense(expense: Omit<Expense, 'id'>) {
@@ -99,7 +151,6 @@ export class DashboardService {
         date: Timestamp.fromDate(expense.date),
         createdAt: serverTimestamp()
       });
-      await this.loadDashboardData();
     } catch (e) {
       console.error("Error adding expense:", e);
       throw e;
@@ -141,7 +192,6 @@ export class DashboardService {
     try {
       const expenseRef = doc(db, 'users', user.uid, 'expenses', expenseId);
       await deleteDoc(expenseRef);
-      await this.loadDashboardData();
     } catch (e) {
       console.error("Error deleting expense:", e);
       throw e;
@@ -159,7 +209,6 @@ export class DashboardService {
         updateData.date = Timestamp.fromDate(expense.date);
       }
       await updateDoc(expenseRef, updateData);
-      await this.loadDashboardData();
     } catch (e) {
       console.error("Error updating expense:", e);
       throw e;

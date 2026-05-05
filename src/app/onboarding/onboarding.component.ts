@@ -58,7 +58,7 @@ interface BudgetLine {
                   placeholder="0"
                 />
                 <div class="absolute right-6 font-bold text-slate-400">
-                  FCFA
+                  {{ currencyControl.value || 'FCFA' }}
                 </div>
               </div>
               <p class="mt-4 text-sm text-slate-500 flex items-center gap-2">
@@ -68,8 +68,31 @@ interface BudgetLine {
             </div>
           }
 
-          <!-- STEP 2: Mode Selection -->
+          <!-- STEP 2: Currency -->
           @if (step() === 2) {
+            <div class="animate-in fade-in slide-in-from-right-8 duration-500">
+               <label class="block text-sm font-semibold text-slate-700 mb-4 text-left">
+                 Devise principale
+               </label>
+               <div class="grid grid-cols-2 gap-4">
+                 @for (cur of ['XOF', 'USD', 'CDF', 'RWF']; track cur) {
+                   <button 
+                     (click)="currencyControl.setValue($any(cur))"
+                     [class.border-teal-500]="currencyControl.value === cur"
+                     [class.bg-teal-50]="currencyControl.value === cur"
+                     class="flex items-center justify-between p-4 rounded-xl border-2 border-slate-100 font-bold text-slate-700 transition-all">
+                     <span>{{ cur }}</span>
+                     @if (currencyControl.value === cur) {
+                       <mat-icon class="text-teal-600">check_circle</mat-icon>
+                     }
+                   </button>
+                 }
+               </div>
+            </div>
+          }
+
+          <!-- STEP 3: Mode Selection -->
+          @if (step() === 3) {
             <div class="animate-in fade-in slide-in-from-right-8 duration-500 grid gap-4 grid-cols-1 md:grid-cols-2">
               <button 
                 (click)="selectMode('50/30/20')"
@@ -105,20 +128,20 @@ interface BudgetLine {
             </div>
           }
 
-          <!-- STEP 3: Categories & Validation -->
-          @if (step() === 3) {
+          <!-- STEP 4: Categories & Validation -->
+          @if (step() === 4) {
             <div class="animate-in fade-in slide-in-from-right-8 duration-500">
               
               <!-- Budget Info Bar -->
               <div class="flex items-center justify-between mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <div>
                   <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total à allouer</p>
-                  <p class="font-display font-bold text-xl text-slate-900">{{ incomeControl.value | number }} FCFA</p>
+                  <p class="font-display font-bold text-xl text-slate-900">{{ incomeControl.value | number }} {{ currencyControl.value }}</p>
                 </div>
                 <div class="text-right">
                   <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Reste à allouer</p>
                   <p class="font-display font-bold text-xl" [class.text-red-500]="remainingToAllocate() < 0" [class.text-teal-600]="remainingToAllocate() >= 0">
-                    {{ remainingToAllocate() | number }} FCFA
+                    {{ remainingToAllocate() | number }} {{ currencyControl.value }}
                   </p>
                 </div>
               </div>
@@ -184,7 +207,7 @@ interface BudgetLine {
             </button>
           }
           
-          @if (step() < 3) {
+          @if (step() < 4) {
             <button 
               (click)="nextStep()"
               [disabled]="!canProceed()"
@@ -231,18 +254,20 @@ export class OnboardingComponent {
   // State
   step = signal<number>(1);
   incomeControl = new FormControl<number | null>(null, [Validators.required, Validators.min(100)]);
+  currencyControl = new FormControl<'USD' | 'CDF' | 'RWF' | 'XOF'>('XOF', [Validators.required]);
   selectedMode = signal<'50/30/20' | 'CUSTOM' | null>(null);
   budgetLines = signal<BudgetLine[]>([]);
   isSaving = signal<boolean>(false);
 
   // Computed
-  progressPercentage = computed(() => `${(this.step() / 3) * 100}%`);
+  progressPercentage = computed(() => `${(this.step() / 4) * 100}%`);
   
   stepTitle = computed(() => {
     switch (this.step()) {
       case 1: return "Quel est votre revenu ?";
-      case 2: return "Choisissez votre règle de gestion";
-      case 3: return "Ajustez vos enveloppes";
+      case 2: return "Quelle est votre devise ?";
+      case 3: return "Choisissez votre règle de gestion";
+      case 4: return "Ajustez vos enveloppes";
       default: return "";
     }
   });
@@ -250,8 +275,9 @@ export class OnboardingComponent {
   stepDescription = computed(() => {
     switch (this.step()) {
       case 1: return "Cette base nous permettra de calculer vos enveloppes budgétaires automatiquement.";
-      case 2: return "Nous avons besoin d'une méthode pour répartir votre argent de façon optimale.";
-      case 3: return "Voici votre budget configuré. Modifiez les montants selon vos réalités pour être le plus précis possible.";
+      case 2: return "Sélectionnez la monnaie que vous utilisez au quotidien.";
+      case 3: return "Nous avons besoin d'une méthode pour répartir votre argent de façon optimale.";
+      case 4: return "Voici votre budget configuré. Modifiez les montants selon vos réalités pour être le plus précis possible.";
       default: return "";
     }
   });
@@ -267,13 +293,14 @@ export class OnboardingComponent {
 
   canProceed(): boolean {
     if (this.step() === 1) return this.incomeControl.valid && (this.incomeControl.value ?? 0) > 0;
-    if (this.step() === 2) return this.selectedMode() !== null;
+    if (this.step() === 2) return this.currencyControl.valid;
+    if (this.step() === 3) return this.selectedMode() !== null;
     return true;
   }
 
   nextStep() {
-    if (this.canProceed() && this.step() < 3) {
-      if (this.step() === 2) {
+    if (this.canProceed() && this.step() < 4) {
+      if (this.step() === 3) {
         this.generateInitialBudgetLines();
       }
       this.step.update(s => s + 1);
@@ -376,6 +403,7 @@ export class OnboardingComponent {
         hasCompletedOnboarding: true,
         monthlyIncome: this.incomeControl.value,
         budgetMode: this.selectedMode(),
+        currency: this.currencyControl.value,
         budgetLines: linesWithoutIds,
         updatedAt: serverTimestamp()
       });
