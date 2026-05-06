@@ -1,7 +1,21 @@
-import {Injectable, inject, signal, effect} from '@angular/core';
-import {AuthService} from '../auth/auth.service';
-import {db} from '../firebase';
-import {collection, doc, getDoc, getDocs, query, where, orderBy, addDoc, serverTimestamp, Timestamp, deleteDoc, updateDoc, onSnapshot} from 'firebase/firestore';
+import { Injectable, inject, signal, effect } from '@angular/core';
+import { AuthService } from '../core/services/auth.service';
+import {
+  Firestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  addDoc,
+  serverTimestamp,
+  Timestamp,
+  deleteDoc,
+  updateDoc,
+  onSnapshot
+} from '@angular/fire/firestore';
 
 export interface BudgetLine {
   name: string;
@@ -29,6 +43,7 @@ export interface Expense {
 @Injectable({providedIn: 'root'})
 export class DashboardService {
   authService = inject(AuthService);
+  private firestore = inject(Firestore);
 
   userConfig = signal<UserConfig | null>(null);
   expenses = signal<Expense[]>([]);
@@ -60,7 +75,7 @@ export class DashboardService {
     this.isLoading.set(true);
     
     // User Config Listener
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(this.firestore, 'users', userId);
     this.unsubUser = onSnapshot(userRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -82,7 +97,7 @@ export class DashboardService {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const expensesRef = collection(db, 'users', userId, 'expenses');
+    const expensesRef = collection(this.firestore, 'users', userId, 'expenses');
     const q = query(
       expensesRef,
       where('date', '>=', Timestamp.fromDate(startOfMonth)),
@@ -114,7 +129,7 @@ export class DashboardService {
     if (!user) return;
 
     try {
-      const userRef = doc(db, 'users', user.uid);
+      const userRef = doc(this.firestore, 'users', user.uid);
       await updateDoc(userRef, {
         currency,
         updatedAt: serverTimestamp()
@@ -145,7 +160,7 @@ export class DashboardService {
     if (!user) return;
 
     try {
-      const expensesRef = collection(db, 'users', user.uid, 'expenses');
+      const expensesRef = collection(this.firestore, 'users', user.uid, 'expenses');
       await addDoc(expensesRef, {
         ...expense,
         date: Timestamp.fromDate(expense.date),
@@ -162,7 +177,7 @@ export class DashboardService {
     if (!user) return [];
 
     try {
-      const expensesRef = collection(db, 'users', user.uid, 'expenses');
+      const expensesRef = collection(this.firestore, 'users', user.uid, 'expenses');
       const q = query(expensesRef, orderBy('date', 'desc'));
       const expensesSnap = await getDocs(q);
       const loadedExpenses: Expense[] = [];
@@ -190,7 +205,7 @@ export class DashboardService {
     if (!user) return;
 
     try {
-      const expenseRef = doc(db, 'users', user.uid, 'expenses', expenseId);
+      const expenseRef = doc(this.firestore, 'users', user.uid, 'expenses', expenseId);
       await deleteDoc(expenseRef);
     } catch (e) {
       console.error("Error deleting expense:", e);
@@ -203,7 +218,7 @@ export class DashboardService {
     if (!user) return;
 
     try {
-      const expenseRef = doc(db, 'users', user.uid, 'expenses', expenseId);
+      const expenseRef = doc(this.firestore, 'users', user.uid, 'expenses', expenseId);
       const updateData: any = { ...expense };
       if (expense.date) {
         updateData.date = Timestamp.fromDate(expense.date);

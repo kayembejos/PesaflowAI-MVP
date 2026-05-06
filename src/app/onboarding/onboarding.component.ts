@@ -1,11 +1,10 @@
-import {ChangeDetectionStrategy, Component, inject, signal, computed} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {ReactiveFormsModule, FormControl, Validators} from '@angular/forms';
-import {MatIconModule} from '@angular/material/icon';
-import {Router} from '@angular/router';
-import {doc, updateDoc, serverTimestamp} from 'firebase/firestore';
-import {AuthService} from '../auth/auth.service';
-import {db} from '../firebase';
+import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
+import { Router } from '@angular/router';
+import { Firestore, doc, updateDoc, serverTimestamp } from '@angular/fire/firestore';
+import { AuthService } from '../core/services/auth.service';
 
 interface BudgetLine {
   id: string; // unique local ID during creation
@@ -160,11 +159,11 @@ interface BudgetLine {
                           placeholder="Nom de la ligne..."
                         />
                         <button (click)="cycleLineType(line.id)" class="text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-md shrink-0 focus:outline-none transition-colors" 
-                              [ngClass]="{
-                                'bg-teal-100 text-teal-700 hover:bg-teal-200': line.type === 'NEED',
-                                'bg-orange-100 text-orange-700 hover:bg-orange-200': line.type === 'WANT',
-                                'bg-blue-100 text-blue-700 hover:bg-blue-200': line.type === 'SAVING'
-                              }">
+                               [ngClass]="{
+                                 'bg-teal-100 text-teal-700 hover:bg-teal-200': line.type === 'NEED',
+                                 'bg-orange-100 text-orange-700 hover:bg-orange-200': line.type === 'WANT',
+                                 'bg-blue-100 text-blue-700 hover:bg-blue-200': line.type === 'SAVING'
+                               }">
                           {{ getTypeName(line.type) }}
                         </button>
                       </div>
@@ -249,6 +248,7 @@ interface BudgetLine {
 })
 export class OnboardingComponent {
   authService = inject(AuthService);
+  private firestore = inject(Firestore);
   router = inject(Router);
 
   // State
@@ -391,7 +391,7 @@ export class OnboardingComponent {
     this.isSaving.set(true);
     
     try {
-      const userRef = doc(db, 'users', user.uid);
+      const userRef = doc(this.firestore, 'users', user.uid);
       
       const linesWithoutIds = this.budgetLines().map((l: BudgetLine) => ({
         name: l.name,
